@@ -29,6 +29,16 @@ namespace panorama {
         std::array<std::uint32_t, kBriefWords> words{};
     };
 
+    // Match between two keypoints
+    struct Match {
+        std::size_t index_a;
+        std::size_t index_b;
+        int distance; // Hamming Distance      
+    };
+
+    // Threshold = 0.8
+    inline constexpr int kMatchRatioNumerator = 4;
+    inline constexpr int kMatchRatioDenominator = 5;
 }
 
 
