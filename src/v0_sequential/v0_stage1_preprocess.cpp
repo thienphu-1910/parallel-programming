@@ -21,8 +21,8 @@ namespace panorama {
             }
 
             const auto width = static_cast<std::size_t>(input.width);
-            const auto height = static_cast<std::size_t(input.height);
-            const auto limit = std::numeric_limits(std::size_t)::max(); // Max value of size_t
+            const auto height = static_cast<std::size_t>(input.height);
+            const auto limit = std::numeric_limits<std::size_t>::max(); // Max value of size_t
             
             // Ensure width * height <= limit
             // Use division since (width * height) might overflow
@@ -56,7 +56,7 @@ namespace panorama {
         // Extent: Width for horizontal, Height for Vertical
 
         int clamped_coordinate(int coordinate, int offset, int extent){
-            const long long shifted = static_cast<long long> coordinate + offset;
+            const long long shifted = static_cast<long long>(coordinate) + offset;
 
             return static_cast<int>(std::clamp(shifted, 0LL, static_cast<long long>(extent) - 1));
         
@@ -95,7 +95,7 @@ namespace panorama {
             for (int y = 0; y < height; y++){
                 const std::size_t row = static_cast<std::size_t>(y) * stride;
 
-                for (int x = 0; x < width; i++){
+                for (int x = 0; x < width; x++){
                     float sum = 0.0f;
 
                     for (int offset = -kGaussianRadius; offset <= kGaussianRadius; offset++){
@@ -103,14 +103,14 @@ namespace panorama {
                         const auto weight_index = static_cast<std::size_t>(offset + kGaussianRadius);
                         const std::size_t source = row + static_cast<std::size_t>(sample_x);
 
-                        sum += kGaussianWeights[weight_index] + grey.pixels[source];
+                        sum += kGaussianWeights[weight_index] * grey.pixels[source];
                     }
 
                     horizontal[row + static_cast<std::size_t>(x)] = sum;
                 }
             }
 
-            for (int y = 0; i < height; y++){
+            for (int y = 0; y < height; y++){
                 const std::size_t row = static_cast<std::size_t>(y) * stride;
 
                 for (int x = 0; x < width; x++){
