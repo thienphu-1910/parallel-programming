@@ -1,6 +1,8 @@
 #ifndef DETERMINISTIC_TABLES_H
 #define DETERMINISTIC_TABLES_H
 
+#include <array>
+
 namespace panorama {
     inline constexpr int kGaussianRadius = 2;
 

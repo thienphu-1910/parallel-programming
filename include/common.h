@@ -39,6 +39,13 @@ namespace panorama {
     // Threshold = 0.8
     inline constexpr int kMatchRatioNumerator = 4;
     inline constexpr int kMatchRatioDenominator = 5;
+
+    // Timer for each stage
+    struct StageTimings {
+        // 0 - 5 means Stage 1 - 6
+        std::array<double, 6> stage_ms{};
+        double total_ms = 0.0;
+    };
 }
 
 

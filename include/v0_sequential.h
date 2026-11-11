@@ -44,6 +44,20 @@ namespace panorama {
                        const ImageRGB& image_b,
                        const Homography& homography);
 
+    struct V0Result {
+        ImageRGB panorama;
+        Homography homography;
+        StageTimings timings;
+
+        std::size_t keypoints_a = 0;
+        std::size_t keypoints_b = 0;
+        std::size_t match_count = 0;
+    };
+
+    // Executes one complete sequential pipeline
+    // Input images must already be loaded
+    V0Result v0_run_pipeline(const ImageRGB& image_a, const ImageRGB& image_b);
+
 }
 
 #endif // V0_SEQUENTIAL_H

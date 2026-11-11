@@ -18,6 +18,42 @@ namespace panorama {
         constexpr long long kMaxCanvasSide   = 16384;
         constexpr long long kMaxCanvasPixels = 100000000LL;
 
+        // Pixel-coordinate tolerance for floating-point roundoff.
+        // This is not the RANSAC inlier threshold.
+        constexpr double kPixelTolerance = 1e-7;
+
+        double snap_near_integer(double value)
+        {
+            const double rounded = std::round(value);
+
+            return std::fabs(value - rounded) <= kPixelTolerance
+                ? rounded
+                : value;
+        }
+
+        bool inside_sample_domain(
+            double& x,
+            double& y,
+            int width,
+            int height)
+        {
+            const double max_x = static_cast<double>(width - 1);
+            const double max_y = static_cast<double>(height - 1);
+
+            if (!std::isfinite(x) || !std::isfinite(y) ||
+                x < -kPixelTolerance ||
+                y < -kPixelTolerance ||
+                x > max_x + kPixelTolerance ||
+                y > max_y + kPixelTolerance) {
+                return false;
+            }
+
+            x = std::clamp(x, 0.0, max_x);
+            y = std::clamp(y, 0.0, max_y);
+
+            return true;
+        }
+
         void validate_rgb(const ImageRGB& image, const char* name) {
             if (image.width <= 0 || image.height <= 0) {
                 throw std::invalid_argument(std::string("Stage 6: ") + name + " dimensions must be positive.");
@@ -46,14 +82,17 @@ namespace panorama {
             return true;
         }
 
-        bool project(const Mat3& h, double x, double y, double& ox, double& oy) {
+        bool project(const Mat3& h, double x, double y, double& ox, double& oy){
             const double w = h[6] * x + h[7] * y + h[8];
-            if (std::fabs(w) < 1e-12) {
+
+            if (!std::isfinite(w) || std::fabs(w) < 1e-12) {
                 return false;
             }
+
             ox = (h[0] * x + h[1] * y + h[2]) / w;
             oy = (h[3] * x + h[4] * y + h[5]) / w;
-            return true;
+
+            return std::isfinite(ox) && std::isfinite(oy);
         }
 
         // Feather weight: distance to the nearest image edge (>= 1 inside the image).
@@ -105,44 +144,122 @@ namespace panorama {
         }
 
         const Mat3 h_b_to_a = homography.h;
-        Mat3 h_a_to_b{};
-        if (!invert(h_b_to_a, h_a_to_b)) {
-            throw std::invalid_argument("Stage 6: homography is not invertible.");
+
+        for (double value : h_b_to_a) {
+            if (!std::isfinite(value)) {
+                throw std::invalid_argument(
+                    "Stage 6: nonfinite homography."
+                );
+            }
         }
 
-        // Canvas bounds = union of A's rectangle and B's projected corners (in A's frame)
-        double min_x = 0.0, min_y = 0.0;
-        double max_x = static_cast<double>(image_a.width);
-        double max_y = static_cast<double>(image_a.height);
+        Mat3 h_a_to_b{};
+
+        if (!invert(h_b_to_a, h_a_to_b)) {
+            throw std::invalid_argument(
+                "Stage 6: homography is not invertible."
+            );
+        }
+
+        for (double value : h_a_to_b) {
+            if (!std::isfinite(value)) {
+                throw std::invalid_argument(
+                    "Stage 6: nonfinite inverse homography."
+                );
+            }
+        }
+
+        // Use integer pixel centers consistently.
+        // A occupies x = 0 ... width-1, y = 0 ... height-1.
+        double min_x = 0.0;
+        double min_y = 0.0;
+        double max_x = static_cast<double>(image_a.width - 1);
+        double max_y = static_cast<double>(image_a.height - 1);
+
+        const double last_x = static_cast<double>(image_b.width - 1);
+        const double last_y = static_cast<double>(image_b.height - 1);
 
         const double corners[4][2] = {
-            { 0.0, 0.0 },
-            { static_cast<double>(image_b.width), 0.0 },
-            { 0.0, static_cast<double>(image_b.height) },
-            { static_cast<double>(image_b.width), static_cast<double>(image_b.height) }
+            {0.0,    0.0},
+            {last_x, 0.0},
+            {0.0,    last_y},
+            {last_x, last_y}
         };
+
+        // Reject a projective denominator that reaches or crosses zero
+        // anywhere within B's rectangular sampling domain.
+        bool positive = false;
+        bool negative = false;
+
         for (const auto& corner : corners) {
-            double ox = 0.0, oy = 0.0;
-            if (!project(h_b_to_a, corner[0], corner[1], ox, oy) ||
-                !std::isfinite(ox) || !std::isfinite(oy)) {
-                throw std::invalid_argument("Stage 6: image B corner projects to infinity.");
+            const double w =
+                h_b_to_a[6] * corner[0] +
+                h_b_to_a[7] * corner[1] +
+                h_b_to_a[8];
+
+            if (!std::isfinite(w) || std::fabs(w) < 1e-12) {
+                throw std::invalid_argument(
+                    "Stage 6: projection is singular at an image corner."
+                );
             }
+
+            positive = positive || w > 0.0;
+            negative = negative || w < 0.0;
+        }
+
+        if (positive && negative) {
+            throw std::invalid_argument(
+                "Stage 6: projection crosses infinity inside image B."
+            );
+        }
+
+        // The projected rectangle is bounded after the denominator check.
+        for (const auto& corner : corners) {
+            double ox = 0.0;
+            double oy = 0.0;
+
+            if (!project(h_b_to_a, corner[0], corner[1], ox, oy)) {
+                throw std::invalid_argument(
+                    "Stage 6: invalid projected corner."
+                );
+            }
+
+            ox = snap_near_integer(ox);
+            oy = snap_near_integer(oy);
+
             min_x = std::min(min_x, ox);
             min_y = std::min(min_y, oy);
             max_x = std::max(max_x, ox);
             max_y = std::max(max_y, oy);
         }
 
-        const long long origin_x = static_cast<long long>(std::floor(min_x));
-        const long long origin_y = static_cast<long long>(std::floor(min_y));
-        const long long out_w    = static_cast<long long>(std::ceil(max_x)) - origin_x;
-        const long long out_h    = static_cast<long long>(std::ceil(max_y)) - origin_y;
+        // Compute bounds in floating point before converting to integers.
+        const double left = std::floor(min_x);
+        const double top = std::floor(min_y);
 
-        if (out_w <= 0 || out_h <= 0 ||
-            out_w > kMaxCanvasSide || out_h > kMaxCanvasSide ||
-            out_w * out_h > kMaxCanvasPixels) {
-            throw std::overflow_error("Stage 6: panorama canvas is too large.");
+        const double width = std::ceil(max_x) - left + 1.0;
+        const double height = std::ceil(max_y) - top + 1.0;
+
+        if (!std::isfinite(left) ||
+            !std::isfinite(top) ||
+            !std::isfinite(width) ||
+            !std::isfinite(height) ||
+            width < 1.0 ||
+            height < 1.0 ||
+            width > static_cast<double>(kMaxCanvasSide) ||
+            height > static_cast<double>(kMaxCanvasSide) ||
+            width * height > static_cast<double>(kMaxCanvasPixels)) {
+            throw std::overflow_error(
+                "Stage 6: panorama canvas is too large."
+            );
         }
+
+        // A's origin is included in the union, so the dimension limits
+        // also bound the magnitude of the negative canvas origin.
+        const long long origin_x = static_cast<long long>(left);
+        const long long origin_y = static_cast<long long>(top);
+        const long long out_w = static_cast<long long>(width);
+        const long long out_h = static_cast<long long>(height);
 
         ImageRGB canvas;
         canvas.width  = static_cast<int>(out_w);
@@ -172,10 +289,8 @@ namespace panorama {
 
                 // Contribution from B (inverse mapping: canvas -> B)
                 double bx = 0.0, by = 0.0;
-                if (project(h_a_to_b, ax, ay, bx, by) &&
-                    bx >= 0.0 && by >= 0.0 &&
-                    bx <= static_cast<double>(image_b.width - 1) &&
-                    by <= static_cast<double>(image_b.height - 1)) {
+                if (project(h_a_to_b, ax, ay, bx, by) && 
+                    inside_sample_domain(bx, by, image_b.width, image_b.height)) {
                     const float w = edge_weight(bx, by, image_b.width, image_b.height);
                     const auto rgb = sample_bilinear(image_b, bx, by);
                     for (std::size_t ch = 0; ch < 3; ch++) {
