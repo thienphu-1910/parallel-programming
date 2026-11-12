@@ -1,0 +1,22 @@
+GPU: Unavailable (CPU development run)
+Batch: 20261112T085528Z_28733b86
+challenging_pair / 1920x1080 / V0
+["C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\outputs\\benchmarks\\20261112T085528Z_28733b86\\stitch.exe", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\dataset\\challenging_pair\\medium_1920x1080\\flats_left_1920x1080.jpg", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\dataset\\challenging_pair\\medium_1920x1080\\flats_right_1920x1080.jpg", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\outputs\\panoramas\\challenging_pair\\medium_1920x1080\\20261112T085528Z_28733b86\\flats_v0.png", "--version", "0", "--runs", "5"]
+Version: V0, single-threaded CPU
+Image A: 1920 x 1080
+Image B: 1920 x 1080
+Timed runs: 5
+Stage 1 (Preprocessing): 35.372 ms average
+Stage 2 (Keypoint detection): 182.456 ms average
+Stage 3 (Descriptor extraction): 12.774 ms average
+Stage 4 (Matching): 26.935 ms average
+Stage 5 (Homography estimation): 4.077 ms average
+Stage 6 (Warping and blending): 225.565 ms average
+Pipeline total: 488.087 ms average
+Pipeline minimum: 329.312 ms
+Keypoints A: 1990
+Keypoints B: 2000
+Matches: 156
+Inliers: 61
+Panorama: 3105 x 1539
+Saved: C:\Users\84913\source\repos\Parallel Programming\Project\outputs\panoramas\challenging_pair\medium_1920x1080\20261112T085528Z_28733b86\flats_v0.png

@@ -1,0 +1,22 @@
+GPU: Unavailable (CPU development run)
+Batch: 20261112T085528Z_28733b86
+site1_indoor / 1280x720 / V0
+["C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\outputs\\benchmarks\\20261112T085528Z_28733b86\\stitch.exe", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\dataset\\site1_indoor\\small_1280x720\\indoor_left_1280x720.jpg", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\dataset\\site1_indoor\\small_1280x720\\indoor_right_1280x720.jpg", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\outputs\\panoramas\\site1_indoor\\small_1280x720\\20261112T085528Z_28733b86\\indoor_v0.png", "--version", "0", "--runs", "5"]
+Version: V0, single-threaded CPU
+Image A: 1280 x 720
+Image B: 1280 x 720
+Timed runs: 5
+Stage 1 (Preprocessing): 9.795 ms average
+Stage 2 (Keypoint detection): 50.933 ms average
+Stage 3 (Descriptor extraction): 1.310 ms average
+Stage 4 (Matching): 0.393 ms average
+Stage 5 (Homography estimation): 2.732 ms average
+Stage 6 (Warping and blending): 65.353 ms average
+Pipeline total: 130.853 ms average
+Pipeline minimum: 126.836 ms
+Keypoints A: 330
+Keypoints B: 285
+Matches: 120
+Inliers: 113
+Panorama: 2058 x 1066
+Saved: C:\Users\84913\source\repos\Parallel Programming\Project\outputs\panoramas\site1_indoor\small_1280x720\20261112T085528Z_28733b86\indoor_v0.png

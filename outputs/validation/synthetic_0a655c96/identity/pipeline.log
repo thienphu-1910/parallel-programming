@@ -1,0 +1,19 @@
+Version: V0, single-threaded CPU
+Image A: 1280 x 720
+Image B: 1280 x 720
+Timed runs: 1
+Debug run: use at least 5 timed runs for reported benchmarks.
+Stage 1 (Preprocessing): 10.336 ms average
+Stage 2 (Keypoint detection): 51.069 ms average
+Stage 3 (Descriptor extraction): 1.306 ms average
+Stage 4 (Matching): 0.468 ms average
+Stage 5 (Homography estimation): 3.278 ms average
+Stage 6 (Warping and blending): 47.519 ms average
+Pipeline total: 114.312 ms average
+Pipeline minimum: 114.312 ms
+Keypoints A: 331
+Keypoints B: 331
+Matches: 331
+Inliers: 331
+Panorama: 1280 x 720
+Saved: C:\Users\84913\source\repos\Parallel Programming\Project\outputs\validation\synthetic_0a655c96\identity\panorama.png

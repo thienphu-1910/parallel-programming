@@ -1,0 +1,22 @@
+GPU: Unavailable (CPU development run)
+Batch: 20261112T085528Z_28733b86
+site3_custom / 1920x1080 / V0
+["C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\outputs\\benchmarks\\20261112T085528Z_28733b86\\stitch.exe", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\dataset\\site3_custom\\medium_1920x1080\\skyline_left_1920x1080.jpg", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\dataset\\site3_custom\\medium_1920x1080\\skyline_right_1920x1080.jpg", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\outputs\\panoramas\\site3_custom\\medium_1920x1080\\20261112T085528Z_28733b86\\skyline_v0.png", "--version", "0", "--runs", "5"]
+Version: V0, single-threaded CPU
+Image A: 1920 x 1080
+Image B: 1920 x 1080
+Timed runs: 5
+Stage 1 (Preprocessing): 23.397 ms average
+Stage 2 (Keypoint detection): 122.081 ms average
+Stage 3 (Descriptor extraction): 8.094 ms average
+Stage 4 (Matching): 15.581 ms average
+Stage 5 (Homography estimation): 5.400 ms average
+Stage 6 (Warping and blending): 321.202 ms average
+Pipeline total: 496.466 ms average
+Pipeline minimum: 485.542 ms
+Keypoints A: 2000
+Keypoints B: 2000
+Matches: 322
+Inliers: 302
+Panorama: 5102 x 2761
+Saved: C:\Users\84913\source\repos\Parallel Programming\Project\outputs\panoramas\site3_custom\medium_1920x1080\20261112T085528Z_28733b86\skyline_v0.png

@@ -1,0 +1,22 @@
+GPU: Unavailable (CPU development run)
+Batch: 20261112T085528Z_28733b86
+site2_outdoor / 1280x720 / V0
+["C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\outputs\\benchmarks\\20261112T085528Z_28733b86\\stitch.exe", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\dataset\\site2_outdoor\\small_1280x720\\outdoor_left_1280x720.jpg", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\dataset\\site2_outdoor\\small_1280x720\\outdoor_right_1280x720.jpg", "C:\\Users\\84913\\source\\repos\\Parallel Programming\\Project\\outputs\\panoramas\\site2_outdoor\\small_1280x720\\20261112T085528Z_28733b86\\outdoor_v0.png", "--version", "0", "--runs", "5"]
+Version: V0, single-threaded CPU
+Image A: 1280 x 720
+Image B: 1280 x 720
+Timed runs: 5
+Stage 1 (Preprocessing): 10.334 ms average
+Stage 2 (Keypoint detection): 55.561 ms average
+Stage 3 (Descriptor extraction): 6.156 ms average
+Stage 4 (Matching): 6.635 ms average
+Stage 5 (Homography estimation): 7.588 ms average
+Stage 6 (Warping and blending): 68.168 ms average
+Pipeline total: 154.819 ms average
+Pipeline minimum: 148.093 ms
+Keypoints A: 1786
+Keypoints B: 880
+Matches: 442
+Inliers: 419
+Panorama: 2036 x 1039
+Saved: C:\Users\84913\source\repos\Parallel Programming\Project\outputs\panoramas\site2_outdoor\small_1280x720\20261112T085528Z_28733b86\outdoor_v0.png

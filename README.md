@@ -2,7 +2,7 @@
 
 ## 1. Team Participants
 
-- Hà Thư Hoàng - 23127467
+- Hà Thư Hoàng - 23127367
 - Trương Công Thiên Phú - 23127455
 
 ## 2. Project Organization
