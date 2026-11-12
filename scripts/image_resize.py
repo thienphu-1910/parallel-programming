@@ -11,42 +11,82 @@ RESOLUTIONS = {
     "large": (3840, 2160),
 }
 
-
-def find_raw_image(raw_directory: Path, side: str) -> Path:
-    expected_stem = f"indoor_{side}"
-
-    candidates = [
-        path
-        for path in raw_directory.iterdir()
-        if path.is_file()
-        and path.stem.lower() == expected_stem
-        and path.suffix.lower() == ".png"
-    ]
-
-    if len(candidates) != 1:
-        raise ValueError(
-            f"Expected exactly one PNG named {expected_stem}.png "
-            f"in {raw_directory}; found {len(candidates)}."
-        )
-
-    return candidates[0]
+SUPPORTED_EXTENSIONS = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".heic",
+    ".heif",
+}
 
 
-def load_png_bgr(path: Path) -> np.ndarray:
-    # Read through pathlib to support Unicode paths on Windows.
+def discover_pairs(raw_directory: Path):
+    pairs = {}
+
+    for path in sorted(raw_directory.iterdir()):
+        if not path.is_file():
+            continue
+
+        if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+            continue
+
+        prefix, separator, side = path.stem.lower().rpartition("_")
+
+        if not separator or not prefix or side not in {"left", "right"}:
+            raise ValueError(
+                f"Invalid raw filename: {path.name}. "
+                "Expected <name>_left or <name>_right."
+            )
+
+        sources = pairs.setdefault(prefix, {})
+
+        if side in sources:
+            raise ValueError(
+                f"Duplicate {side} image for pair '{prefix}' "
+                f"in {raw_directory}."
+            )
+
+        sources[side] = path
+
+    for prefix, sources in pairs.items():
+        missing = {"left", "right"} - sources.keys()
+
+        if missing:
+            raise ValueError(
+                f"Pair '{prefix}' in {raw_directory} is missing: "
+                f"{', '.join(sorted(missing))}."
+            )
+
+    return pairs
+
+
+def load_image_bgr(path: Path) -> np.ndarray:
+    if path.suffix.lower() in {".heic", ".heif"}:
+        # HEIC decoding is separate from OpenCV resizing.
+        from PIL import Image, ImageOps
+        from pillow_heif import register_heif_opener
+
+        register_heif_opener(thumbnails=False)
+
+        with Image.open(path) as image:
+            oriented = ImageOps.exif_transpose(image)
+            rgb = np.array(oriented.convert("RGB"))
+
+        return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+    # Reading bytes through pathlib supports Unicode filenames.
     encoded = np.frombuffer(
         path.read_bytes(),
         dtype=np.uint8,
     )
 
     if encoded.size == 0:
-        raise ValueError(f"PNG file is empty: {path}")
+        raise ValueError(f"Image file is empty: {path}")
 
-    # Decode directly to three-channel, 8-bit BGR.
     image = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
 
     if image is None:
-        raise ValueError(f"Cannot decode PNG image: {path}")
+        raise ValueError(f"Cannot decode image: {path}")
 
     return image
 
@@ -54,7 +94,6 @@ def load_png_bgr(path: Path) -> np.ndarray:
 def crop_to_16_9(image: np.ndarray):
     height, width = image.shape[:2]
 
-    # Largest exact 16:9 rectangle that fits inside the image.
     unit = min(width // 16, height // 9)
 
     if unit == 0:
@@ -74,11 +113,7 @@ def crop_to_16_9(image: np.ndarray):
     return cropped, (left, top, crop_width, crop_height)
 
 
-def resize_image(
-    image: np.ndarray,
-    width: int,
-    height: int,
-):
+def resize_image(image: np.ndarray, width: int, height: int):
     source_height, source_width = image.shape[:2]
 
     if source_width == width and source_height == height:
@@ -100,6 +135,21 @@ def resize_image(
     return resized, method
 
 
+def output_path(
+    site_directory: Path,
+    prefix: str,
+    side: str,
+    label: str,
+    width: int,
+    height: int,
+) -> Path:
+    return (
+        site_directory
+        / f"{label}_{width}x{height}"
+        / f"{prefix}_{side}_{width}x{height}.jpg"
+    )
+
+
 def save_jpeg(path: Path, image: np.ndarray):
     success, encoded = cv2.imencode(
         ".jpg",
@@ -113,7 +163,6 @@ def save_jpeg(path: Path, image: np.ndarray):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(encoded.tobytes())
 
-    # Verify that the saved file decodes to the expected dimensions.
     saved = cv2.imdecode(
         np.frombuffer(path.read_bytes(), dtype=np.uint8),
         cv2.IMREAD_COLOR,
@@ -125,35 +174,66 @@ def save_jpeg(path: Path, image: np.ndarray):
         )
 
 
-def output_path(
-    site_directory: Path,
-    side: str,
-    label: str,
-    width: int,
-    height: int,
-) -> Path:
-    return (
-        site_directory
-        / f"{label}_{width}x{height}"
-        / f"indoor_{side}_{width}x{height}.jpg"
-    )
+def prepare_pair(site_directory: Path, prefix: str, sources):
+    # Decode both images before writing this pair's outputs.
+    images = {
+        side: load_image_bgr(sources[side])
+        for side in ("left", "right")
+    }
+
+    print(f"\nSite: {site_directory.name}; pair: {prefix}")
+
+    for side, image in images.items():
+        source_height, source_width = image.shape[:2]
+
+        cropped, crop = crop_to_16_9(image)
+        left, top, crop_width, crop_height = crop
+
+        print(f"Source: {sources[side].name}")
+        print(f"Decoded dimensions: {source_width}x{source_height}")
+        print(
+            f"Crop: x={left}, y={top}, "
+            f"width={crop_width}, height={crop_height}"
+        )
+
+        for label, (width, height) in RESOLUTIONS.items():
+            # Generate every size directly from the original crop.
+            resized, method = resize_image(cropped, width, height)
+
+            destination = output_path(
+                site_directory,
+                prefix,
+                side,
+                label,
+                width,
+                height,
+            )
+
+            save_jpeg(destination, resized)
+
+            print(f"Saved: {destination}")
+            print(f"  {width}x{height}; {method}")
 
 
 def main():
     project_root = Path(__file__).resolve().parent.parent
+    dataset_directory = project_root / "dataset"
 
     parser = argparse.ArgumentParser(
         description=(
-            "Crop the indoor PNG pair to 16:9 and resize it "
-            "to 720p, 1080p, and 4K."
+            "Prepare raw image pairs across dataset folders "
+            "at 720p, 1080p, and 4K."
         )
     )
 
     parser.add_argument(
         "--site",
         type=Path,
-        default=project_root / "dataset" / "site1_indoor",
-        help="Site directory containing the raw subdirectory.",
+        action="append",
+        help=(
+            "Process one site directory. Repeat this option "
+            "for multiple sites. Default: all dataset sites."
+        ),
     )
 
     parser.add_argument(
@@ -164,69 +244,63 @@ def main():
 
     args = parser.parse_args()
 
-    site_directory = args.site.resolve()
-    raw_directory = site_directory / "raw"
-
-    if not raw_directory.is_dir():
-        raise FileNotFoundError(
-            f"Raw directory does not exist: {raw_directory}"
+    if args.site:
+        sites = sorted({path.resolve() for path in args.site})
+    else:
+        sites = sorted(
+            path
+            for path in dataset_directory.iterdir()
+            if path.is_dir() and (path / "raw").is_dir()
         )
 
-    sources = {
-        side: find_raw_image(raw_directory, side)
-        for side in ("left", "right")
-    }
+    jobs = []
+
+    for site_directory in sites:
+        raw_directory = site_directory / "raw"
+
+        if not raw_directory.is_dir():
+            raise FileNotFoundError(
+                f"Raw directory does not exist: {raw_directory}"
+            )
+
+        pairs = discover_pairs(raw_directory)
+
+        if not pairs:
+            print(f"Skipping empty raw folder: {raw_directory}")
+            continue
+
+        for prefix, sources in pairs.items():
+            jobs.append((site_directory, prefix, sources))
+
+    if not jobs:
+        raise ValueError("No complete raw image pairs were found.")
 
     # Check all destinations before writing any output.
-    for side in sources:
-        for label, (width, height) in RESOLUTIONS.items():
-            destination = output_path(
-                site_directory, side, label, width, height
-            )
-
-            if destination.exists() and not args.overwrite:
-                raise FileExistsError(
-                    f"Output already exists: {destination}\n"
-                    "Use --overwrite to replace existing outputs."
+    for site_directory, prefix, _ in jobs:
+        for side in ("left", "right"):
+            for label, (width, height) in RESOLUTIONS.items():
+                destination = output_path(
+                    site_directory,
+                    prefix,
+                    side,
+                    label,
+                    width,
+                    height,
                 )
 
-    # Decode both inputs before generating output files.
-    images = {
-        side: load_png_bgr(source)
-        for side, source in sources.items()
-    }
+                if destination.exists() and not args.overwrite:
+                    raise FileExistsError(
+                        f"Output already exists: {destination}\n"
+                        "Use --overwrite to replace existing outputs."
+                    )
 
     print(f"OpenCV version: {cv2.__version__}")
+    print(f"Pairs to prepare: {len(jobs)}")
 
-    for side, image in images.items():
-        source_height, source_width = image.shape[:2]
+    for site_directory, prefix, sources in jobs:
+        prepare_pair(site_directory, prefix, sources)
 
-        cropped, crop = crop_to_16_9(image)
-        left, top, crop_width, crop_height = crop
-
-        print(f"\nSource: {sources[side].name}")
-        print(f"Decoded dimensions: {source_width}x{source_height}")
-        print(
-            f"Crop: x={left}, y={top}, "
-            f"width={crop_width}, height={crop_height}"
-        )
-
-        for label, (width, height) in RESOLUTIONS.items():
-            # Every resolution comes directly from the same crop.
-            resized, method = resize_image(
-                cropped, width, height
-            )
-
-            destination = output_path(
-                site_directory, side, label, width, height
-            )
-
-            save_jpeg(destination, resized)
-
-            print(
-                f"Saved: {destination}\n"
-                f"  Dimensions: {width}x{height}; method: {method}"
-            )
+    print(f"\nCompleted: {len(jobs)} pairs.")
 
 
 if __name__ == "__main__":
